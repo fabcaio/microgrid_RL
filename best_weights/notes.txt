@@ -1,0 +1,17 @@
+N04: 64, 5
+N12: 256, 3
+N24: 512, 4
+N48: 512, 4
+
+job_N04_029_24_2_24_16_47_22
+	hidden_size=064, lr=1e-4, state_opt=5, final_temp=250, seed=07, opt_gap=0.79, infeas_rate=0
+
+job_N12_054_24_2_27_15_6_47
+	hidden_size=256, lr=1e-4, state_opt=4, final_temp=150, seed=42, opt_gap=1.73, infeas_rate=1.113
+
+job_N24_067_24_2_27_13_45_27
+	hidden_size=512, lr=1e-4, state_opt=2, final_temp=250, seed=07, opt_gap=2.01, infeas_rate=5.619
+
+job_N48_103_24_2_6_2_26_14
+	hidden_size=512, lr=1e-4, state_opt=4, final_temp=150, seed=07, opt_gap=4.38, infeas_rate=95/4133=22.3
+
