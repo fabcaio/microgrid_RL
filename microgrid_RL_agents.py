@@ -38,142 +38,16 @@ class Network(nn.Module):
 
         return output
     
-#### Noisy Net
-
-#copied from the torchrl library
-from typing import Optional, Union, Sequence
-DEVICE_TYPING = Union[torch.device, str, int]
-import math
-class NoisyLinear(nn.Linear):
-    """Noisy Linear Layer.
-
-    Presented in "Noisy Networks for Exploration", https://arxiv.org/abs/1706.10295v3
-
-    A Noisy Linear Layer is a linear layer with parametric noise added to the weights. This induced stochasticity can
-    be used in RL networks for the agent's policy to aid efficient exploration. The parameters of the noise are learned
-    with gradient descent along with any other remaining network weights. Factorized Gaussian
-    noise is the type of noise usually employed.
-
-
-    Args:
-        in_features (int): input features dimension
-        out_features (int): out features dimension
-        bias (bool, optional): if ``True``, a bias term will be added to the matrix multiplication: Ax + b.
-            Defaults to ``True``
-        device (DEVICE_TYPING, optional): device of the layer.
-            Defaults to ``"cpu"``
-        dtype (torch.dtype, optional): dtype of the parameters.
-            Defaults to ``None`` (default pytorch dtype)
-        std_init (scalar, optional): initial value of the Gaussian standard deviation before optimization.
-            Defaults to ``0.1``
-
-    """
-
-    def __init__(
-        self,
-        in_features: int,
-        out_features: int,
-        bias: bool = True,
-        device: Optional[DEVICE_TYPING] = None,
-        dtype: Optional[torch.dtype] = None,
-        std_init: float = 0.1,
-    ):
-        nn.Module.__init__(self)
-        self.in_features = int(in_features)
-        self.out_features = int(out_features)
-        self.std_init = std_init
-
-        self.weight_mu = nn.Parameter(
-            torch.empty(
-                out_features,
-                in_features,
-                device=device,
-                dtype=dtype,
-                requires_grad=True,
-            )
-        )
-        self.weight_sigma = nn.Parameter(
-            torch.empty(
-                out_features,
-                in_features,
-                device=device,
-                dtype=dtype,
-                requires_grad=True,
-            )
-        )
-        self.register_buffer(
-            "weight_epsilon",
-            torch.empty(out_features, in_features, device=device, dtype=dtype),
-        )
-        if bias:
-            self.bias_mu = nn.Parameter(
-                torch.empty(
-                    out_features,
-                    device=device,
-                    dtype=dtype,
-                    requires_grad=True,
-                )
-            )
-            self.bias_sigma = nn.Parameter(
-                torch.empty(
-                    out_features,
-                    device=device,
-                    dtype=dtype,
-                    requires_grad=True,
-                )
-            )
-            self.register_buffer(
-                "bias_epsilon",
-                torch.empty(out_features, device=device, dtype=dtype),
-            )
-        else:
-            self.bias_mu = None
-        self.reset_parameters()
-        self.reset_noise()
-
-    def reset_parameters(self) -> None:
-        mu_range = 1 / math.sqrt(self.in_features)
-        self.weight_mu.data.uniform_(-mu_range, mu_range)
-        self.weight_sigma.data.fill_(self.std_init / math.sqrt(self.in_features))
-        if self.bias_mu is not None:
-            self.bias_mu.data.uniform_(-mu_range, mu_range)
-            self.bias_sigma.data.fill_(self.std_init / math.sqrt(self.out_features))
-
-    def reset_noise(self) -> None:
-        epsilon_in = self._scale_noise(self.in_features)
-        epsilon_out = self._scale_noise(self.out_features)
-        self.weight_epsilon.copy_(epsilon_out.outer(epsilon_in))
-        if self.bias_mu is not None:
-            self.bias_epsilon.copy_(epsilon_out)
-
-    def _scale_noise(self, size: Union[int, torch.Size, Sequence]) -> torch.Tensor:
-        if isinstance(size, int):
-            size = (size,)
-        x = torch.randn(*size, device=self.weight_mu.device)
-        return x.sign().mul_(x.abs().sqrt_())
-
-    @property
-    def weight(self) -> torch.Tensor:
-        if self.training:
-            return self.weight_mu + self.weight_sigma * self.weight_epsilon
-        else:
-            return self.weight_mu
-
-    @property
-    def bias(self) -> Optional[torch.Tensor]:
-        if self.bias_mu is not None:
-            if self.training:
-                return self.bias_mu + self.bias_sigma * self.bias_epsilon
-            else:
-                return self.bias_mu
-        else:
-            return None
-        
-class NoisyNetwork(nn.Module):
-    """the same as Network class, but utilizes noisy linear layers"""
+    def count_parameters(self):
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)
     
+class Network2(nn.Module):
+    """
+    defines the LSTM architecture with one output per time step
+    a dense layer is used to output the correct number of actions
+    """
     def __init__(self, input_size, hidden_size, num_layers, lr, n_actions, batch_first=True):
-        super(NoisyNetwork, self).__init__()
+        super(Network2, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -182,30 +56,30 @@ class NoisyNetwork(nn.Module):
         self.batch_first = batch_first        
         
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, batch_first=batch_first)
-        self.noisydense = NoisyLinear(hidden_size, n_actions)
+        self.dense = nn.Linear(hidden_size, n_actions)
         
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.loss = nn.MSELoss()
         
-    def forward(self, input, h0, c0):
+        self.h0 = torch.randn(num_layers, 1, hidden_size)
+        self.c0 = torch.randn(num_layers, 1, hidden_size)
+        
+    def forward(self, input):
         
         # input = torch.randn(batch_size, seq_len, input_size)
-        # h0 = torch.randn(num_layers, batch_size, hidden_size)
-        # c0 = torch.randn(num_layers, batch_size, hidden_size)
 
-        output, (hn, cn) = self.lstm(input, (h0, c0))
+        output, (hn, cn) = self.lstm(input, (self.h0, self.c0))
         
-        output = self.noisydense(output)
+        output = self.dense(output)
 
         return output
     
-    def reset_noise(self):
-        """Reset all noisy layers."""
-        self.noisydense.reset_noise()
+    def count_parameters(self):
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)
         
 class DQN_Agent():
     def __init__(self, gamma: float, lr: float, input_size: int, seq_len: int, batch_size: int, hidden_size: int,
-                 num_layers: int, n_actions: int, update_target: int, max_mem_size: int=10000, DDQN: bool=True, noisyNet: bool = False):
+                 num_layers: int, n_actions: int, update_target: int, max_mem_size: int=10000, DDQN: bool=True):
         
         """
         arguments:
@@ -220,7 +94,6 @@ class DQN_Agent():
             update_target (int) : (only relevant if DDQN==True)
             max_mem_size (int) : maximum capacity of the replay buffer
             DDQN (bool): True if DDQN is used
-            noisyNet: True if noisyNet is used
         """
         
         self.gamma = gamma
@@ -234,14 +107,10 @@ class DQN_Agent():
         self.n_actions = n_actions
         self.mem_size = max_mem_size  
         self.DDQN = DDQN
-        self.noisyNet = noisyNet
-                   
+                           
         self.mem_cntr = 0
         
-        if self.noisyNet == True:
-            self.Q_eval = NoisyNetwork(input_size, hidden_size, num_layers, lr, n_actions)
-        else:
-            self.Q_eval = Network(input_size, hidden_size, num_layers, lr, n_actions)
+        self.Q_eval = Network(input_size, hidden_size, num_layers, lr, n_actions)
         
         self.state_memory = np.zeros((self.mem_size, seq_len, input_size), dtype=np.float32)
         self.new_state_memory = np.zeros((self.mem_size, seq_len, input_size), dtype=np.float32)
@@ -250,10 +119,7 @@ class DQN_Agent():
         self.terminal_memory = np.zeros(self.mem_size, dtype=bool)
         
         if self.DDQN == True:
-            if self.noisyNet == True:
-                self.Q_target = NoisyNetwork(input_size, hidden_size, num_layers, lr, n_actions)
-            else:
-                self.Q_target = Network(input_size, hidden_size, num_layers, lr, n_actions)       
+            self.Q_target = Network(input_size, hidden_size, num_layers, lr, n_actions)       
             
             self.target_cntr = 0
             self.update_target = update_target
@@ -277,12 +143,6 @@ class DQN_Agent():
         
         #if no option is chosen, then the method defaults to the epsilon greedy policy
         if eps_greedy==False and softmax==False : greedy = True
-        
-        #if noisyNet is True, then greedy=True
-        if self.noisyNet==True:
-            eps_greedy = False
-            softmax = False
-            greedy = True
                      
         #epsilon-greedy policy   
         if eps_greedy == True:
@@ -363,7 +223,7 @@ class DQN_Agent():
         state_batch = torch.tensor(self.state_memory[batch], dtype=torch.float32)
         new_state_batch = torch.tensor(self.new_state_memory[batch], dtype=torch.float32)
         reward_batch = torch.tensor(self.reward_memory[batch], dtype=torch.float32)
-        terminal_batch = torch.tensor(self.terminal_memory[batch])
+        terminal_batch = torch.tensor(self.terminal_memory[batch], dtype=torch.bool)
         action_batch = self.action_memory[batch]
 
         h0 = torch.zeros(self.num_layers, self.batch_size, self.hidden_size)
@@ -382,20 +242,19 @@ class DQN_Agent():
             
             q_next = torch.max(q_next, dim=2)[0]
             q_next[terminal_batch] = 0.0
-            q_next_max_mean = torch.mean(q_next,dim=1).unsqueeze(-1).repeat(1,self.seq_len) # average Q value for all heads
             
-            reward_batch = reward_batch.unsqueeze(-1).repeat(1,self.seq_len) #repeats the reward for each head
-            # q_target = reward_batch + self.gamma * q_next # does not take the average of the heads
-            q_target = reward_batch + self.gamma * q_next_max_mean
+            reward_batch = reward_batch.unsqueeze(-1).repeat(1,self.seq_len) #repeats the reward for each LSTM head            
+            q_target = reward_batch + self.gamma * q_next # does not take the average of the LSTM heads
+            
+            # q_next_max_mean = torch.mean(q_next,dim=1).unsqueeze(-1).repeat(1,self.seq_len) # average Q value for all LSTM heads
+            # q_target = reward_batch + self.gamma * q_next_max_mean # target with the average of the LSTM heads
 
         loss = self.Q_eval.loss(q_eval, q_target)
 
         self.Q_eval.zero_grad()        
         loss.backward()
+        nn.utils.clip_grad_value_(self.Q_eval.parameters(), clip_value=1.0) # gradient clipping for learning stability
         self.Q_eval.optimizer.step()
-        
-        if self.noisyNet == True:
-            self.Q_eval.reset_noise()
         
         if self.DDQN == True:
             self.target_cntr += 1
