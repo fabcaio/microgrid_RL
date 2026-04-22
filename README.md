@@ -2,7 +2,7 @@
 
 Repository containing the data and code of the paper entitled “Integrating Reinforcement Learning and Model Predictive Control for Mixed-Logical Dynamical Systems” published in the IEEE Open Journal of Control Systems, available [here](https://ieeexplore.ieee.org/document/11134093/). Corresponds to Chapter 2 of the thesis.
 
-This repository only contains the Python scripts and notebooks. The full repository with the dataset is available as the file "chapter2.rar" [here](10.4121/277b2054-94e1-4d6a-b16c-db448bd8c4c5).
+This repository only contains the Python scripts and notebooks. The full repository with the dataset is available as the file "chapter2.rar" [here](https://doi.org/10.4121/277b2054-94e1-4d6a-b16c-db448bd8c4c5).
 
 Acknowledgement: This research has received funding from the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programme (Grant agreement No. 101018826 - CLariNet).
 # Setup    
@@ -14,7 +14,7 @@ Developed and tested on Windows 11 with `uv` version `0.11.6` and `Python 3.11.1
 Please install `uv` first by following the official documentation.    
 ## Installation
 
-Download "chapter2.rar" from [this link](10.4121/277b2054-94e1-4d6a-b16c-db448bd8c4c5), and extract the files on a folder.
+Download "chapter2.rar" from [this link](https://doi.org/10.4121/277b2054-94e1-4d6a-b16c-db448bd8c4c5), and extract the files on a folder.
   
 ```powershell  
 cd <PATH:project_folder>  
