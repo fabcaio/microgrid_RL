@@ -13,6 +13,8 @@ Developed and tested on Windows 11 with `uv` version `0.11.6` and `Python 3.11.1
   
 Please install `uv` first by following the official documentation.    
 ## Installation
+
+Download "chapter2.rar" from [this link](10.4121/277b2054-94e1-4d6a-b16c-db448bd8c4c5), and extract the files on a folder.
   
 ```powershell  
 cd <PATH:project_folder>  
